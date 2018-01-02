@@ -5,14 +5,14 @@ const mimeCodec = 'audio/mpeg;';
 const url = 'assets/song.mp3';
 
 
-var sourceBuffer;
+let sourceBuffer;
 let socket = io();
-var queue = [];
-queue.push = function( buffer ) {
-    if (buffer !== 'done' && !sourceBuffer.updating && this.length === 0 ) {
-        sourceBuffer.appendBuffer( buffer )
+let queue = [];
+queue.push = function( chunk ) {
+    if (chunk !== 'done' && !sourceBuffer.updating && this.length === 0 ) {
+        sourceBuffer.appendBuffer( chunk )
     } else {
-        Array.prototype.push.call( this, buffer )
+        Array.prototype.push.call( this, chunk )
     }
 };
 
@@ -29,7 +29,7 @@ function sourceOpen (_) {
     sourceBuffer = mediaSource.addSourceBuffer(mimeCodec);
     sourceBuffer.addEventListener('updateend', function (_) {
         if ( queue.length > 0 ) {
-            var nextElement = queue.shift();
+            let nextElement = queue.shift();
             if (nextElement === 'done'){
                 mediaSource.endOfStream();
             }else{
@@ -48,26 +48,35 @@ function getSong(){
     xhr.responseType = 'arraybuffer';
     xhr.onload = function () {
 
+        socket.emit('total_size', xhr.response.byteLength);
+
         let chunksNumber = 60;
         let array = [];
 
         let offset = Math.floor(xhr.response.byteLength / chunksNumber);
         for(let currentPos = 0, pos = 0; currentPos < xhr.response.byteLength; currentPos += offset, pos++){
+
             let startPosition = currentPos;
             let endPosition = startPosition + offset;
+
+            let newChunk = {
+                id: getDuration(startPosition)
+            };
             if(endPosition < xhr.response.byteLength){
-                array[pos] = xhr.response.slice(startPosition, endPosition);
+                newChunk.data = xhr.response.slice(startPosition, endPosition);
             }else{
-                array[pos] = xhr.response.slice(startPosition);
+                newChunk.data = xhr.response.slice(startPosition);
             }
+            array[pos] = newChunk;
         }
+
 
         let next = 0;
         let interval = setInterval(()=>{
             if(next < array.length){
                 let chunk = array[next++];
-                queue.push(chunk);
                 socket.emit('chunk_in', chunk);
+                queue.push(chunk.data);
             }else{
                 queue.push('done');
                 clearInterval(interval)
@@ -78,6 +87,18 @@ function getSong(){
     };
     xhr.send();
 }
+
+//Given bytes of an mp3 song, return duration in seconds
+function getDuration(byteLength){
+    //192 kbps
+    const mp3BitRate = 192000 / 8;
+    //return duration in seconds
+    return byteLength / mp3BitRate;
+}
+
+setInterval(()=>{
+    socket.emit('source_seek_time', mediaPlayer.currentTime)
+}, 500);
 
 
 

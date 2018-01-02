@@ -11,35 +11,34 @@ http.listen(3000, function(){
 app.use(express.static('public'));
 
 let playersArray = [];
+let totalSize = 0;
 
 io.on('connection', function(socket){
     console.log('a user connected');
 
     socket.on('add_new_player', function () {
+        playersArray = playersArray.filter((it) => it.connected);
         playersArray.push(socket);
-        playersArray.forEach(it => console.log(it.id))
+        multicast('total_size', totalSize);
+        playersArray.forEach(it => console.log(it.id));
     });
 
     socket.on('chunk_in', function (chunk) {
-        multicastChunk(chunk);
+        multicast('chunk_in', chunk);
     });
     socket.on('chunk_end', function () {
-        multicastChunkEnd();
+        multicast('chunk_end', {});
+    });
+    socket.on('source_seek_time', function (time) {
+        multicast('source_seek_time', time);
+    });
+    socket.on('total_size', function (size) {
+        totalSize = size;
+        multicast('total_size', totalSize);
     });
 
 });
 
-function multicastChunk(chunk){
-    playersArray = playersArray.filter((it) => it.connected);
-    playersArray.forEach(socketIt => {
-        if(socketIt.connected){
-            console.log('Sending chunk to: ' + socketIt.id);
-            socketIt.emit('chunk_in', chunk)
-        }
-    });
-}
-
-function multicastChunkEnd(){
-    playersArray = playersArray.filter((it) => it.connected);
-    playersArray.forEach(socketIt => socketIt.emit('chunk_end'));
+function multicast(event, value){
+    playersArray.forEach(socketIt => socketIt.emit(event, value));
 }

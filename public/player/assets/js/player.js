@@ -1,18 +1,16 @@
 'use strict';
 
-
-var mediaPlayer = document.querySelector('audio');
+let mediaPlayer = document.querySelector('audio');
 const mimeCodec = 'audio/mpeg;';
 
-
-
-var sourceBuffer;
-var queue = [];
-queue.push = function( buffer ) {
-    if (buffer !== 'done' && !sourceBuffer.updating && this.length === 0 ) {
-        sourceBuffer.appendBuffer( buffer )
+let offSetPosition = -1;
+let sourceBuffer;
+let queue = [];
+queue.push = function( chunk ) {
+    if (chunk !== 'done' && !sourceBuffer.updating) {
+        sourceBuffer.appendBuffer( chunk.data )
     } else {
-        Array.prototype.push.call( this, buffer )
+        Array.prototype.push.call( this, chunk )
     }
 };
 
@@ -30,14 +28,13 @@ function sourceOpen (_) {
     sourceBuffer.addEventListener('updateend', function (_) {
 
         if ( queue.length > 0 ) {
-            var nextElement = queue.shift();
-            if (nextElement === 'done'){
+            let chunk = queue.shift();
+            if (chunk === 'done'){
                 mediaSource.endOfStream();
             }else{
-                sourceBuffer.appendBuffer(nextElement);
+                sourceBuffer.appendBuffer(chunk.data);
             }
         }
-        mediaPlayer.play();
 
     });
 
@@ -53,10 +50,23 @@ function fetchAB (update, done) {
     let socket = io();
     socket.emit('add_new_player', {});
     socket.on('chunk_in', function(chunk){
+        if(offSetPosition === -1){
+            offSetPosition = chunk.id;
+            console.log('OffsetPosition: ' + offSetPosition);
+        }
         update(chunk);
     });
     socket.on('chunk_end', function(){
         done();
+    });
+    socket.on('source_seek_time', function(source_seek_time){
+        console.log('SeekTime:' + source_seek_time);
+        console.log('CurrentTime:' + mediaPlayer.currentTime);
+        if(offSetPosition > -1 && source_seek_time - (mediaPlayer.currentTime + offSetPosition) > 0.5){
+            console.log('play!!');
+            mediaPlayer.currentTime = (source_seek_time - offSetPosition) + 0.5;
+            mediaPlayer.play();
+        }
     });
 }
 
