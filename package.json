@@ -1,0 +1,17 @@
+{
+  "name": "media_extensions",
+  "version": "1.0.0",
+  "description": "Stream media content test",
+  "main": "server.js",
+  "dependencies": {
+    "express": "^4.16.2",
+    "socket.io": "^2.0.4"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js"
+  },
+  "author": "Fernando Rueda Oliva",
+  "license": "ISC"
+}
