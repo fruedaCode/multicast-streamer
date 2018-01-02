@@ -1,6 +1,6 @@
 'use strict';
 
-var mediaPlayer = document.querySelector('audio');
+let mediaPlayer = document.querySelector('audio');
 const mimeCodec = 'audio/mpeg;';
 const url = 'assets/song.mp3';
 
@@ -47,8 +47,6 @@ function getSong(){
     xhr.open('get', url);
     xhr.responseType = 'arraybuffer';
     xhr.onload = function () {
-
-        socket.emit('total_size', xhr.response.byteLength);
 
         let chunksNumber = 60;
         let array = [];
