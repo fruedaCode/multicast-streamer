@@ -1,9 +1,11 @@
 'use strict';
 
-var video = document.querySelector('video');
-// Need to be specific for Blink regarding codecs
-// ./mp4info frag_bunny.mp4 | grep Codec
-const mimeCodec = 'video/mp4; codecs="avc1.42E01E, mp4a.40.2"';
+
+var mediaPlayer = document.querySelector('audio');
+const mimeCodec = 'audio/mpeg;';
+
+
+
 var sourceBuffer;
 var queue = [];
 queue.push = function( buffer ) {
@@ -16,7 +18,7 @@ queue.push = function( buffer ) {
 
 if ('MediaSource' in window && MediaSource.isTypeSupported(mimeCodec)) {
     let mediaSource = new MediaSource;
-    video.src = URL.createObjectURL(mediaSource);
+    mediaPlayer.src = URL.createObjectURL(mediaSource);
     mediaSource.addEventListener('sourceopen', sourceOpen);
 } else {
     console.error('Unsupported MIME type or codec: ', mimeCodec);
@@ -35,7 +37,7 @@ function sourceOpen (_) {
                 sourceBuffer.appendBuffer(nextElement);
             }
         }
-        video.play();
+        mediaPlayer.play();
 
     });
 
@@ -55,6 +57,6 @@ function fetchAB (update, done) {
     });
     socket.on('chunk_end', function(){
         done();
-    })
+    });
 }
 

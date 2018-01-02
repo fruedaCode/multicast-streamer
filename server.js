@@ -2,7 +2,6 @@ const express = require('express')
 let app = express()
 let http = require('http').Server(app);
 let io = require('socket.io')(http);
-let fs = require('fs');
 
 
 http.listen(3000, function(){
@@ -18,6 +17,7 @@ io.on('connection', function(socket){
 
     socket.on('add_new_player', function () {
         playersArray.push(socket);
+        playersArray.forEach(it => console.log(it.id))
     });
 
     socket.on('chunk_in', function (chunk) {
@@ -26,27 +26,20 @@ io.on('connection', function(socket){
     socket.on('chunk_end', function () {
         multicastChunkEnd();
     });
+
 });
 
 function multicastChunk(chunk){
-    playersArray.forEach(socketIt => socketIt.emit('chunk_in', chunk));
+    playersArray = playersArray.filter((it) => it.connected);
+    playersArray.forEach(socketIt => {
+        if(socketIt.connected){
+            console.log('Sending chunk to: ' + socketIt.id);
+            socketIt.emit('chunk_in', chunk)
+        }
+    });
 }
 
 function multicastChunkEnd(){
+    playersArray = playersArray.filter((it) => it.connected);
     playersArray.forEach(socketIt => socketIt.emit('chunk_end'));
-
-}
-
-
-
-
-//Simulate input from server
-/*setTimeout(()=>{
-    generateInput(multicastChunk, multicastChunkEnd);
-}, 5000);*/
-
-function generateInput(onDataFn, onEndFn) {
-    let readStream = fs.createReadStream('./public/player/assets/frag_bunny.mp4');
-    readStream.on('data', onDataFn);
-    readStream.on('end', onEndFn);
 }
