@@ -35,7 +35,7 @@ function sourceOpen (_) {
                 let slicedFile = chunkFile(arrayBuffer);
                 emitChunks(slicedFile, 1000);
 
-                emitTicks(500);
+                emitTicks(300);
 
                 mediaPlayer.play();
             });
@@ -105,7 +105,7 @@ function getDuration(byteLength){
 
 function emitTicks(interval){
     setInterval(()=>{
-        socket.emit('source_seek_time', mediaPlayer.currentTime)
+        socket.emit('source_seek_time', {time: mediaPlayer.currentTime, timeStamp: new Date().getTime()});
     }, interval);
 }
 

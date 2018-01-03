@@ -3,7 +3,7 @@
 let mediaPlayer = document.querySelector('audio');
 const mimeCodec = 'audio/mpeg;';
 
-let offSetPosition = -1;
+let offSetPosition;
 let sourceBuffer;
 let queue = [];
 queue.push = function( chunk ) {
@@ -26,7 +26,6 @@ function sourceOpen (_) {
     let mediaSource = this;
     sourceBuffer = mediaSource.addSourceBuffer(mimeCodec);
     sourceBuffer.addEventListener('updateend', function (_) {
-
         if ( queue.length > 0 ) {
             let chunk = queue.shift();
             if (chunk === 'done'){
@@ -46,27 +45,44 @@ function sourceOpen (_) {
 
 }
 
+
 function fetchAB (update, done) {
     let socket = io();
     socket.emit('add_new_player', {});
     socket.on('chunk_in', function(chunk){
-        if(offSetPosition === -1){
-            offSetPosition = chunk.id;
-            console.log('OffsetPosition: ' + offSetPosition);
-        }
+        setOffSet(chunk.id);
         update(chunk);
     });
     socket.on('chunk_end', function(){
         done();
     });
-    socket.on('source_seek_time', function(source_seek_time){
-        console.log('SeekTime:' + source_seek_time);
-        console.log('CurrentTime:' + mediaPlayer.currentTime);
-        if(offSetPosition > -1 && source_seek_time - (mediaPlayer.currentTime + offSetPosition) > 0.5){
-            console.log('play!!');
-            mediaPlayer.currentTime = (source_seek_time - offSetPosition) + 0.5;
-            mediaPlayer.play();
+    socket.on('source_seek_time', function(source_seek){
+        let latency = ((new Date().getTime()) - source_seek.timeStamp) / 1000;
+        if(offSetPosition != null && source_seek.time - (mediaPlayer.currentTime + offSetPosition) > latency){
+            playOnce();
+            mediaPlayer.currentTime = ((source_seek.time - offSetPosition) + latency) + 0.5;
         }
     });
 }
+
+function once(fn) {
+    var result;
+
+    return function() {
+        if(fn) {
+            result = fn.apply(this, arguments);
+            fn = null;
+        }
+
+        return result;
+    };
+}
+
+let playOnce = once(function(){
+    mediaPlayer.play();
+});
+let setOffSet = once(function(offSet){
+    offSetPosition = offSet;
+});
+
 
