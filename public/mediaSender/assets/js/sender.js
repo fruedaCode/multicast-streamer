@@ -2,19 +2,11 @@
 
 let mediaPlayer = document.querySelector('audio');
 const mimeCodec = 'audio/mpeg;';
-const url = 'assets/song.mp3';
-
 
 let sourceBuffer;
 let socket = io();
-let queue = [];
-queue.push = function( chunk ) {
-    if (chunk !== 'done' && !sourceBuffer.updating && this.length === 0 ) {
-        sourceBuffer.appendBuffer( chunk )
-    } else {
-        Array.prototype.push.call( this, chunk )
-    }
-};
+
+let mp3BitRate;
 
 if ('MediaSource' in window && MediaSource.isTypeSupported(mimeCodec)) {
     let mediaSource = new MediaSource;
@@ -27,76 +19,95 @@ if ('MediaSource' in window && MediaSource.isTypeSupported(mimeCodec)) {
 function sourceOpen (_) {
     let mediaSource = this;
     sourceBuffer = mediaSource.addSourceBuffer(mimeCodec);
-    sourceBuffer.addEventListener('updateend', function (_) {
-        if ( queue.length > 0 ) {
-            let nextElement = queue.shift();
-            if (nextElement === 'done'){
-                mediaSource.endOfStream();
-            }else{
-                sourceBuffer.appendBuffer(nextElement);
-            }
-        }
-        mediaPlayer.play();
-    });
 
-    getSong();
+    document.getElementById('files').addEventListener('change', function(event) {
+        let file = event.target.files[0];
+        readFile(file, function(arrayBuffer){
+
+            sourceBuffer.addEventListener('updateend', function (_) {
+                mediaSource.endOfStream();
+                console.log('File length: ' + arrayBuffer.byteLength);
+                console.log('Duration: ' + mediaPlayer.duration);
+                console.log('BitRate: ' + arrayBuffer.byteLength / mediaPlayer.duration + 'bps');
+                mp3BitRate = arrayBuffer.byteLength / mediaPlayer.duration;
+
+                //I have to wait for the mp3BitRate to start emitting
+                let slicedFile = chunkFile(arrayBuffer);
+                emitChunks(slicedFile, 1000);
+
+                emitTicks(500);
+
+                mediaPlayer.play();
+            });
+            sourceBuffer.appendBuffer(arrayBuffer);
+        })
+    }, false);
+
 }
 
-function getSong(){
-    var xhr = new XMLHttpRequest;
-    xhr.open('get', url);
-    xhr.responseType = 'arraybuffer';
-    xhr.onload = function () {
+function readFile(file, cb){
+    let reader = new FileReader();
 
-        let chunksNumber = 60;
-        let array = [];
-
-        let offset = Math.floor(xhr.response.byteLength / chunksNumber);
-        for(let currentPos = 0, pos = 0; currentPos < xhr.response.byteLength; currentPos += offset, pos++){
-
-            let startPosition = currentPos;
-            let endPosition = startPosition + offset;
-
-            let newChunk = {
-                id: getDuration(startPosition)
-            };
-            if(endPosition < xhr.response.byteLength){
-                newChunk.data = xhr.response.slice(startPosition, endPosition);
-            }else{
-                newChunk.data = xhr.response.slice(startPosition);
-            }
-            array[pos] = newChunk;
-        }
-
-
-        let next = 0;
-        let interval = setInterval(()=>{
-            if(next < array.length){
-                let chunk = array[next++];
-                socket.emit('chunk_in', chunk);
-                queue.push(chunk.data);
-            }else{
-                queue.push('done');
-                clearInterval(interval)
-            }
-        }, 1000);
-
-
+    reader.onload = function(e) {
+        cb(reader.result)
     };
-    xhr.send();
+
+    reader.readAsArrayBuffer(file);
+}
+
+function emitChunks(slicedFile, intervalDuration){
+    let next = 0;
+    let interval = setInterval(()=>{
+        if(next < slicedFile.length){
+            let chunk = slicedFile[next++];
+            socket.emit('chunk_in', chunk);
+        }else{
+            socket.emit('chunk_end', {});
+            clearInterval(interval)
+        }
+    }, intervalDuration);
+}
+
+function chunkFile(file){
+    let chunksNumber = 60;
+    let array = [];
+
+    let offset = Math.floor(file.byteLength / chunksNumber);
+    for(let currentPos = 0; currentPos < file.byteLength; currentPos += offset){
+
+        let startPosition = currentPos;
+        let endPosition = startPosition + offset;
+
+        array.push(chunkIt(file, startPosition, endPosition));
+    }
+
+    return array;
+}
+
+function chunkIt(file, startPosition, endPosition){
+    let newChunk = {
+        id: getDuration(startPosition)
+    };
+    if(endPosition < file.byteLength){
+        newChunk.data = file.slice(startPosition, endPosition);
+    }else{
+        newChunk.data = file.slice(startPosition);
+    }
+
+    return newChunk;
 }
 
 //Given bytes of an mp3 song, return duration in seconds
 function getDuration(byteLength){
-    //192 kbps
-    const mp3BitRate = 192000 / 8;
     //return duration in seconds
     return byteLength / mp3BitRate;
 }
 
-setInterval(()=>{
-    socket.emit('source_seek_time', mediaPlayer.currentTime)
-}, 500);
+function emitTicks(interval){
+    setInterval(()=>{
+        socket.emit('source_seek_time', mediaPlayer.currentTime)
+    }, interval);
+}
 
 
 
