@@ -80,7 +80,6 @@ function emitChunks(slicedFile, intervalDuration){
             let chunk = slicedFile[next++];
             socket.emit('chunk_in', chunk);
         }else{
-            socket.emit('chunk_end', {});
             clearInterval(interval)
         }
     }, intervalDuration);
