@@ -30,6 +30,9 @@ io.on('connection', function(socket){
     socket.on('source_seek_time', function (time) {
         multicast('source_seek_time', time);
     });
+    socket.on('new_stream', function () {
+        multicast('new_stream', {});
+    });
 
 });
 

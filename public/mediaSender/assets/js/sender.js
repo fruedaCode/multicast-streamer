@@ -1,6 +1,7 @@
 'use strict';
 
 let mediaPlayer = document.querySelector('audio');
+let mediaSource;
 const mimeCodec = 'audio/mpeg;';
 
 let sourceBuffer;
@@ -8,42 +9,51 @@ let socket = io();
 
 let mp3BitRate;
 
-if ('MediaSource' in window && MediaSource.isTypeSupported(mimeCodec)) {
-    let mediaSource = new MediaSource;
-    mediaPlayer.src = URL.createObjectURL(mediaSource);
-    mediaSource.addEventListener('sourceopen', sourceOpen);
-} else {
-    console.error('Unsupported MIME type or codec: ', mimeCodec);
+function createMediaPlayer(){
+    if(mediaPlayer){
+        mediaPlayer.remove();
+    }
+
+    mediaPlayer = document.createElement('audio');
+    mediaPlayer.setAttribute('controls','');
+    document.querySelector('body').appendChild(mediaPlayer);
+
+    if ('MediaSource' in window && MediaSource.isTypeSupported(mimeCodec)) {
+        mediaSource = new MediaSource;
+        mediaPlayer.src = URL.createObjectURL(mediaSource);
+        mediaSource.addEventListener('sourceopen', function(){
+            sourceBuffer = mediaSource.addSourceBuffer(mimeCodec);
+        });
+    } else {
+        console.error('Unsupported MIME type or codec: ', mimeCodec);
+    }
 }
 
-function sourceOpen (_) {
-    let mediaSource = this;
-    sourceBuffer = mediaSource.addSourceBuffer(mimeCodec);
+document.getElementById('files').addEventListener('change', function(event) {
+    createMediaPlayer();
+    socket.emit('new_stream');
+    let file = event.target.files[0];
+    readFile(file, function(arrayBuffer){
 
-    document.getElementById('files').addEventListener('change', function(event) {
-        let file = event.target.files[0];
-        readFile(file, function(arrayBuffer){
+        sourceBuffer.addEventListener('updateend', function (_) {
+            mediaSource.endOfStream();
+            console.log('File length: ' + arrayBuffer.byteLength);
+            console.log('Duration: ' + mediaPlayer.duration);
+            console.log('BitRate: ' + arrayBuffer.byteLength / mediaPlayer.duration + 'bps');
+            mp3BitRate = arrayBuffer.byteLength / mediaPlayer.duration;
 
-            sourceBuffer.addEventListener('updateend', function (_) {
-                mediaSource.endOfStream();
-                console.log('File length: ' + arrayBuffer.byteLength);
-                console.log('Duration: ' + mediaPlayer.duration);
-                console.log('BitRate: ' + arrayBuffer.byteLength / mediaPlayer.duration + 'bps');
-                mp3BitRate = arrayBuffer.byteLength / mediaPlayer.duration;
+            //I have to wait for the mp3BitRate to start emitting
+            let slicedFile = chunkFile(arrayBuffer);
+            emitChunks(slicedFile, 10);
 
-                //I have to wait for the mp3BitRate to start emitting
-                let slicedFile = chunkFile(arrayBuffer);
-                emitChunks(slicedFile, 1000);
+            emitTicks(300);
 
-                emitTicks(300);
+            mediaPlayer.play();
+        });
+        sourceBuffer.appendBuffer(arrayBuffer);
+    })
+}, false);
 
-                mediaPlayer.play();
-            });
-            sourceBuffer.appendBuffer(arrayBuffer);
-        })
-    }, false);
-
-}
 
 function readFile(file, cb){
     let reader = new FileReader();
