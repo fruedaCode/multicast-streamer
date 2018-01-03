@@ -1,11 +1,12 @@
 'use strict';
 
+let socket = io();
+
 let mediaPlayer = document.querySelector('audio');
 let mediaSource;
-const mimeCodec = 'audio/mpeg;';
 
+const mimeCodec = 'audio/mpeg;';
 let sourceBuffer;
-let socket = io();
 
 let mp3BitRate;
 
@@ -35,12 +36,19 @@ document.getElementById('files').addEventListener('change', function(event) {
     let file = event.target.files[0];
     readFile(file, function(arrayBuffer){
 
+        let tags = mp3Parser.readTags(new DataView(arrayBuffer));
+        tags.forEach((item)=>{
+            if(item.header && item.header.bitrate){
+                mp3BitRate = item.header.bitrate;
+            }
+        });
+
         sourceBuffer.addEventListener('updateend', function (_) {
             mediaSource.endOfStream();
             console.log('File length: ' + arrayBuffer.byteLength);
             console.log('Duration: ' + mediaPlayer.duration);
-            console.log('BitRate: ' + arrayBuffer.byteLength / mediaPlayer.duration + 'bps');
-            mp3BitRate = arrayBuffer.byteLength / mediaPlayer.duration;
+            console.log('Calculated BitRate: ' + arrayBuffer.byteLength / mediaPlayer.duration + 'bps');
+            console.log('Read BitRate: ' + mp3BitRate + 'bps');
 
             //I have to wait for the mp3BitRate to start emitting
             let slicedFile = chunkFile(arrayBuffer);
@@ -110,7 +118,7 @@ function chunkIt(file, startPosition, endPosition){
 //Given bytes of an mp3 song, return duration in seconds
 function getDuration(byteLength){
     //return duration in seconds
-    return byteLength / mp3BitRate;
+    return byteLength / (mp3BitRate * 1000 / 8);
 }
 
 function emitTicks(interval){
