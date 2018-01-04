@@ -17,7 +17,7 @@ function createMediaPlayer(){
     }
 
     mediaPlayer = document.createElement('audio');
-    mediaPlayer.setAttribute('controls','');
+    //mediaPlayer.setAttribute('controls','');
     document.querySelector('body').appendChild(mediaPlayer);
 
     if ('MediaSource' in window && MediaSource.isTypeSupported(mimeCodec)) {
@@ -114,6 +114,17 @@ function emitTicks(interval){
     }, interval);
 }
 
+
+/*
+
+Required libraries from
+https://www.npmjs.com/package/mp3-parser
+https://github.com/biril/mp3-parser
+<script src="assets/js/lib/mp3-parser/lib.js"></script>
+<script src="assets/js/lib/mp3-parser/xing.js"></script>
+<script src="assets/js/lib/mp3-parser/id3v2.js"></script>
+<script src="assets/js/lib/mp3-parser/main.js"></script>
+
 function getBitrate(arrayBuffer){
     //I can get bitrate from the size and the duration of the song
     let tags = mp3Parser.readTags(new DataView(arrayBuffer));
@@ -124,6 +135,7 @@ function getBitrate(arrayBuffer){
     });
     console.log('Read BitRate: ' + mp3BitRate + 'bps');
 }
+*/
 
 
 
