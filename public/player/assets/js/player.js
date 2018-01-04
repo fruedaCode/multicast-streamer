@@ -71,7 +71,7 @@ function fetchAB (update) {
         let latency = ((new Date().getTime()) - source_seek.timeStamp) / 1000;
         if(offSetPosition != null && source_seek.time - (mediaPlayer.currentTime + offSetPosition) > latency){
             playOnce();
-            mediaPlayer.currentTime = ((source_seek.time - offSetPosition) + latency);
+            mediaPlayer.currentTime = ((source_seek.time - offSetPosition) + latency) + 0.05;
         }
     });
 }

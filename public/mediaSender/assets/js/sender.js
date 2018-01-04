@@ -10,6 +10,7 @@ let sourceBuffer;
 
 let mp3BitRate;
 
+socket.emit('new_stream');
 function createMediaPlayer(){
     if(mediaPlayer){
         mediaPlayer.remove();
@@ -36,23 +37,16 @@ document.getElementById('files').addEventListener('change', function(event) {
     let file = event.target.files[0];
     readFile(file, function(arrayBuffer){
 
-        let tags = mp3Parser.readTags(new DataView(arrayBuffer));
-        tags.forEach((item)=>{
-            if(item.header && item.header.bitrate){
-                mp3BitRate = item.header.bitrate;
-            }
-        });
-
         sourceBuffer.addEventListener('updateend', function (_) {
             mediaSource.endOfStream();
             console.log('File length: ' + arrayBuffer.byteLength);
             console.log('Duration: ' + mediaPlayer.duration);
-            console.log('Calculated BitRate: ' + arrayBuffer.byteLength / mediaPlayer.duration + 'bps');
-            console.log('Read BitRate: ' + mp3BitRate + 'bps');
+            console.log('Calculated BitRate: ' + (arrayBuffer.byteLength / 1000 * 8) / mediaPlayer.duration + 'bps');
+            mp3BitRate = (arrayBuffer.byteLength / 1000 * 8) / mediaPlayer.duration;
 
             //I have to wait for the mp3BitRate to start emitting
             let slicedFile = chunkFile(arrayBuffer);
-            emitChunks(slicedFile, 10);
+            emitChunks(slicedFile);
 
             emitTicks(300);
 
@@ -73,16 +67,10 @@ function readFile(file, cb){
     reader.readAsArrayBuffer(file);
 }
 
-function emitChunks(slicedFile, intervalDuration){
-    let next = 0;
-    let interval = setInterval(()=>{
-        if(next < slicedFile.length){
-            let chunk = slicedFile[next++];
-            socket.emit('chunk_in', chunk);
-        }else{
-            clearInterval(interval)
-        }
-    }, intervalDuration);
+function emitChunks(slicedFile){
+    slicedFile.forEach((chunk)=>{
+        socket.emit('chunk_in', chunk);
+    });
 }
 
 function chunkFile(file){
@@ -124,6 +112,17 @@ function emitTicks(interval){
     setInterval(()=>{
         socket.emit('source_seek_time', {time: mediaPlayer.currentTime, timeStamp: new Date().getTime()});
     }, interval);
+}
+
+function getBitrate(arrayBuffer){
+    //I can get bitrate from the size and the duration of the song
+    let tags = mp3Parser.readTags(new DataView(arrayBuffer));
+    tags.forEach((item)=>{
+        if(item.header && item.header.bitrate){
+            mp3BitRate = item.header.bitrate;
+        }
+    });
+    console.log('Read BitRate: ' + mp3BitRate + 'bps');
 }
 
 

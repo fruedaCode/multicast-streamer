@@ -11,23 +11,35 @@ http.listen(3000, function(){
 app.use(express.static('public'));
 
 let playersArray = [];
-let currentArrayBuffer = [];
 let currentSeekTime = 0;
+let currentArrayBuffer = [];
 
 io.on('connection', function(socket){
-    console.log('a user connected');
 
     socket.on('add_new_player', function () {
-        playersArray = playersArray.filter((it) => it.connected);
-        playersArray.push(socket);
+        //For browser reloads
+        removeLostConnections();
 
-        console.log(JSON.stringify(currentArrayBuffer));
-        currentArrayBuffer.forEach((chunk) => {
-            multicast('chunk_in', chunk);
-        });
+        let newSocketItem = {
+            socket: socket,
+            buffer: currentArrayBuffer.slice()
+        };
+        playersArray.push(newSocketItem);
+
+        while(newSocketItem.buffer.length > 0){
+            newSocketItem.socket.emit('chunk_in', newSocketItem.buffer.shift());
+        }
     });
 
     socket.on('chunk_in', function (chunk) {
+        playersArray.forEach((socketItem) => {
+            if(socketItem.buffer.length === 0){
+                socketItem.socket.emit('chunk_in', chunk);
+            }else{
+                socketItem.buffer.push(chunk);
+            }
+        });
+
         currentArrayBuffer.push(chunk);
     });
     socket.on('source_seek_time', function (time) {
@@ -35,17 +47,27 @@ io.on('connection', function(socket){
         removePlayedChunks();
         multicast('source_seek_time', time);
     });
+
     socket.on('new_stream', function () {
-        currentArrayBuffer = [];
+        removeLostConnections();
         multicast('new_stream', {});
+        currentArrayBuffer = [];
+        playersArray.forEach((socketItem) => {
+            socketItem.buffer = [];
+        });
     });
 
 });
+
+
+function removeLostConnections(){
+    playersArray = playersArray.filter((it) => it.socket.connected);
+}
 
 function removePlayedChunks(){
     currentArrayBuffer = currentArrayBuffer.filter((it) => it.id > currentSeekTime)
 }
 
 function multicast(event, value){
-    playersArray.forEach(socketIt => socketIt.emit(event, value));
+    playersArray.forEach(socketIt => socketIt.socket.emit(event, value));
 }
