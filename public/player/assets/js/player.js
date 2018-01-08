@@ -100,10 +100,8 @@ function addEventsListeners(){
 
     mediaPlayer.addEventListener('playing', ()=>{
         lastPlayingTime = new Date().getTime() / 1000;
-        console.log('Playing: ' + lastPlayingTime);
 
         if(lastSeekingTime > 0) {
-            console.log('offset: ' + (lastPlayingTime - lastSeekingTime));
             if(lastPlayingTime - lastSeekingTime > 0.1) {
                 seekingTime = lastPlayingTime - lastSeekingTime;
                 mediaPlayer.currentTime = mediaPlayer.currentTime + seekingTime;
@@ -114,7 +112,6 @@ function addEventsListeners(){
     });
     mediaPlayer.addEventListener('seeking', ()=>{
         lastSeekingTime = new Date().getTime() / 1000;
-        console.log('Seeking: ' + lastSeekingTime);
     });
 }
 
