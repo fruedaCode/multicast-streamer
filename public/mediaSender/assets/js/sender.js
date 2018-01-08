@@ -17,7 +17,7 @@ function createMediaPlayer(){
     }
 
     mediaPlayer = document.createElement('audio');
-    //mediaPlayer.setAttribute('controls','');
+    mediaPlayer.setAttribute('controls','');
     document.querySelector('body').appendChild(mediaPlayer);
 
     if ('MediaSource' in window && MediaSource.isTypeSupported(mimeCodec)) {
